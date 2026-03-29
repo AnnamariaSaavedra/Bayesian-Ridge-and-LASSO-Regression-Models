@@ -34,6 +34,14 @@ p <- ncol(x) # Number of explanatory variables
 
 # 3.1 Hyperparameter elicitation
 
+x_b <- Data %>%
+    dplyr::select(-c(Wage)) %>% # Set the matrix containing the explanatory variables
+    as.matrix()
+
+x_b <- cbind(x_b, 1) # Create the intercept column
+
+
+
 e <- 3 # Shape parameter of inverse-gamma distribution
 
 f <- e*sigma2_OLS # Scale parameter of inverse-gamma distribution
