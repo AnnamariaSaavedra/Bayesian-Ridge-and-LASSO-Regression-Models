@@ -65,14 +65,14 @@ M4 <- Gibbs_ridgenp(y, x,
                     n_skip = 10, # Accounting for Markov chain autocorrelation will require systematic sampling,
                     a, b, c, d, l, m, n, p)
 
-# 4. Bayesian inference
-
-# 4.1 Display the log-likelihood chain
+# 4. Display the log-likelihood chain
 
 plot(M4$LL, type = "p", pch = ".", cex = 1.1, col = "darkorchid3", xlab = "Iteración", ylab = "Log-verosimilitud", main = "")
 abline(h = mean(M4$LL), lwd = 3, col = "darkorchid3")
 
-# 4.2 Inference on the number of clusters
+# 5. Bayesian inference
+
+# Inference on the number of clusters
 
 K <- apply(M4$XI, 1, function(x) length(unique(x))) # Compute the number of clusters at each iteration
 
@@ -117,7 +117,7 @@ matrix_A <- function(model, K, n){
   return(xi_hat = xi_hat)
 }
 
-# 4.3 Inference for Bayesian Nonparametric Ridge
+# Bayesian inference for beta and sigma2
 
 hat_np <- function(model, K, p){
   ite <- nrow(model$XI)
@@ -217,7 +217,7 @@ LAMBDA_SD <- round(sd(M4$LAMBDA), 4) # Posterior standard deviation
 
 CI_LAMBDA <- round(quantile(x = M4$LAMBDA, probs = c(0.025, 0.975)), 4) # 95% credible interval
 
-# 4.3.4 Bayesian inference for alpha
+# Bayesian inference for alpha
 
 ALPHA_MEAN <- round(mean(M4$ALPHA), 4) # Posterior mean
 
@@ -227,7 +227,7 @@ ALPHA_SD <- round(sd(M4$ALPHA), 4) # Posterior standard deviation
 
 CI_ALPHA <- round(quantile(x = M4$ALPHA, probs = c(0.025, 0.975)), 4) # 95% credible interval
 
-# 4.4 Compute information criterion
+# 6. Compute information criterion
 
 # Watanabe-Akaike Information Criterion
 
@@ -374,7 +374,7 @@ cross_validation <- cross_validation <- function(y, p,
 
 CV <- cross_validation(y, p, a, b, c, d, l, m)
 
-# 4.6 Bayesian inference for density function
+# 7. Bayesian inference for density function
 
 posterior_density_estimate <- function(model, y_seq, x) {
   B <- length(model$BETA)
