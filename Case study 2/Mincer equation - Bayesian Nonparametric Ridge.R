@@ -69,8 +69,8 @@ M4 <- Gibbs_ridgenp(y, x,
 
 # 4.1 Display the log-likelihood chain
 
-plot(M4$LL, type = "p", pch = ".", cex = 1.1, col = "deeppink3", xlab = "Iteración", ylab = "Log-verosimilitud", main = "")
-abline(h = mean(M4$LL), lwd = 3, col = "deeppink3")
+plot(M4$LL, type = "p", pch = ".", cex = 1.1, col = "darkorchid3", xlab = "Iteración", ylab = "Log-verosimilitud", main = "")
+abline(h = mean(M4$LL), lwd = 3, col = "darkorchid3")
 
 # 4.2 Inference on the number of clusters
 
@@ -426,5 +426,5 @@ hist(x = y, freq = FALSE,
      ylab = "Densidad", main = "",
      col = alpha("grey", 0.3), cex.label = 1.5, cex.axis  = 1.5)
 # Overlay the posterior density estimate as a blue line
-polygon(c(y_seq, rev(y_seq)), c(f_inf, rev(f_sup)), col = alpha("deeppink3", 0.3), border = NA)
-lines(y_seq, f_hat, lwd = 2, col = "deeppink3")
+polygon(c(y_seq, rev(y_seq)), c(f_inf, rev(f_sup)), col = alpha("darkorchid3", 0.3), border = NA)
+lines(y_seq, f_hat, lwd = 2, col = "darkorchid3")
