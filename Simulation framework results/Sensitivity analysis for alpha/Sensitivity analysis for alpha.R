@@ -68,7 +68,7 @@ ggplot(K_table, aes(x = K, y = Freq)) +
   theme(panel.border = element_blank(), panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
 
-# 4. Bayesian inference for K = 2
+# 4. Bayesian inference for K =
 
 hat_np <- function(model, K, p){
   ite <- nrow(model$XI)
@@ -145,4 +145,3 @@ hat_np <- function(model, K, p){
   }
   return(inference = inf)
 }
-inference <- hat_np(hyperparameter, K = 2, p, ite = 10000)$inference
