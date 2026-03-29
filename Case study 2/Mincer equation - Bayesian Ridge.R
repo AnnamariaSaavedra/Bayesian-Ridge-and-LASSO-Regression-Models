@@ -145,11 +145,18 @@ WAIC <- -2*LPPD + 2*pWAIC
 
 # Cross validation
 
-cross_validation <- function(y, x, n, p, a, c, d){
+cross_validation <- function(y, n, p, a, c, d){
+  x <- Data %>%
+    dplyr::select(-c(Wage)) %>% # Set the matrix containing the explanatory variables
+    as.matrix()
+
+  x <- cbind(x, 1) # Create the intercept column
+  
+  # Create the train and test dataset
   index <- sample(1:n, size = 0.7*n)
   
-  y_train <- y[index]; x_train <- x[index,] # Train data set
-  y_test <- y[-index]; x_test <- x[-index,] # Test data set
+  y_train <- y[index]; x_train <- x[index,] # Train dataset
+  y_test <- y[-index]; x_test <- x[-index,] # Test dataset
   
   # Objects where the mean absolute error, and the mean squared prediction error will be stored
   mape <- NULL
@@ -161,6 +168,15 @@ cross_validation <- function(y, x, n, p, a, c, d){
   beta_OLS <- solve(t(x_train)%*%x_train)%*%t(x_train)%*%y_train
   residuals <- y_train - x_train%*%beta_OLS
   sigma2_OLS <- sum(residuals^2)/(n - p)
+  
+  x <- Data %>%
+    dplyr::select(-c(Wage)) %>% # Set the matrix containing the explanatory variables
+    scale(center = TRUE, scale = TRUE) %>% # Standardize the explanatory variables
+  
+  x <- cbind(x, 1) # Create the intercept column
+  
+  x_train <- x[index,] # Standardized train dataset
+  x_test <- x[-index,] # Standardized test dataset
   
   # Fit Bayesian Ridge regression model
   M2 <- Gibbs_ridge(y_train, x_train, a, b = a*sigma2_0, c, d, n, p,
