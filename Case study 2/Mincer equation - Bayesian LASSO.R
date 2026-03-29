@@ -40,7 +40,11 @@ x_b <- Data %>%
 
 x_b <- cbind(x_b, 1) # Create the intercept column
 
+beta_OLS <- solve(t(x_b)%*%x_b)%*%t(x_b)%*%y
 
+residuals <- y - x_b%*%beta_OLS
+
+sigma2_OLS <- sum(residuals^2)/(n - p)
 
 e <- 3 # Shape parameter of inverse-gamma distribution
 
