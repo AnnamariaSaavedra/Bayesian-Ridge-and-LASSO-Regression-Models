@@ -139,30 +139,32 @@ hat_np <- function(model, K, p){
   permu <- gtools::permutations(n = K, r = K) # Permutations
   
   # Objects where the samples of beta, and sigma2 will be stored
-  BETA_corrected <- vector("list", p)
-  SIGMA2_corrected <- NULL
+  BETA_corrected <- lapply(1:p, function(x) matrix(nrow = 0, ncol = K))
+  SIGMA2_corrected <- matrix(nrow = 0, ncol = K)
+  
+  # Objects where the posterior mean of beta, and sigma2 will be stored
+  beta_pos <- matrix(0, nrow = K, ncol = p)
+  sigma2_pos <- numeric(K)
   
   # Posterior distribution of K
   k <- apply(X = model$XI, MARGIN = 1, function(x) length(unique(x)))
   k_tab <- table(factor(x = k, levels = k, labels = k))
   
-  # Objects where the posterior mean of beta, and sigma2 will be stored
-  beta_pos <- matrix(0, nrow = K, ncol = p)
-  sigma2_pos <- 0
-  
   for (b in 1:ite) {
     if (length(unique(model$XI[b,])) == K) {
       beta_pos <- beta_pos +
-        model$BETA[[b]][sort(unique(model$XI[b,])), , drop = FALSE] / max(k_tab)
+        (model$BETA[[b]][sort(unique(model$XI[b,])), , drop = FALSE] / max(k_tab))
       
-      sigma2_pos <- sigma2_pos + model$SIGMA[[b]] / max(k_tab)
+      sigma2_pos <- sigma2_pos + (model$SIGMA[[b]] / max(k_tab))
     }
   }
   
-  # Average over the permuted spaces
-  for (b in 1:ite) {
-    if (length(table(model$XI[b,])) == K) {
+  for(b in 1:ite){
+    if (length(unique(model$XI[b,])) == K) {
+      # Average over the permuted spaces
       beta_current <- model$BETA[[b]][sort(unique(model$XI[b,])), , drop = FALSE]
+      sigma2_current <- model$SIGMA[[b]]
+      
       # Reorder according to the permutations, and compute the distance of each sample to its posterior mean
       dist <- apply(X = permu, MARGIN = 1, 
                     FUN = function(perm) {
@@ -175,7 +177,6 @@ hat_np <- function(model, K, p){
         BETA_corrected[[j]] <- rbind(BETA_corrected[[j]], beta_current[best_permu, j]) 
       }
       
-      sigma2_current <- model$SIGMA[[b]]
       # Reorder according to the permutations, and compute the distance of each sample to its posterior mean
       dist2 <- apply(X = permu, MARGIN = 1, 
                      FUN = function(perm) {
@@ -184,8 +185,8 @@ hat_np <- function(model, K, p){
                      }
       )
       # Select the optimum permutation
-      best_permu <- permu[which.min(dist2),]
-      SIGMA2_corrected <- rbind(SIGMA2_corrected, sigma2_current[best_permu])
+      best_permu2 <- permu[which.min(dist2),]
+      SIGMA2_corrected <- rbind(SIGMA2_corrected, sigma2_current[best_permu2])
     }
   }
   
