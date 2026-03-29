@@ -199,7 +199,7 @@ cross_validation <- function(y, n, p, a, c, d){
   return(list(mape = mape, mspe = mspe))
 }
 
-cross_validation_M2 <- cross_validation(y, x, n, p, a, c, d)
+cross_validation_M2 <- cross_validation(y, n, p, a, c, d)
 
 # 7. Monte Carlo samples from the posterior predictive distribution of test statistics
 
