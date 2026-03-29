@@ -60,7 +60,7 @@ h <- 1 # Rate parameter of gamma distribution
 # 3.2 Gibbs sampling algorithm implementation
 
 M3 <- Gibbs_lasso(y, x, e, f, g, h, n, p,
-                  n_skip = 50, # Accounting for Markov chain autocorrelation will require systematic sampling
+                  n_skip = 10, # Accounting for Markov chain autocorrelation will require systematic sampling
                   n_sams = 10000, # Set the number of effective samples
                   n_burn = 1000) # Set the number of burn-in samples
 
@@ -150,11 +150,18 @@ for (i in 1:n) {
 
 WAIC <- -2*LPPD + 2*pWAIC
 
-cross_validation <- function(y, x, n, p, e, g, h){
+cross_validation <- function(y, n, p, e, g, h){
+  x <- Data %>%
+    dplyr::select(-c(Wage)) %>% # Set the matrix containing the explanatory variables
+    as.matrix()
+
+  x <- cbind(x, 1) # Create the intercept column
+  
+  # Create the train and test dataset
   index <- sample(1:n, size = 0.7*n)
   
-  y_train <- y[index]; x_train <- x[index,] # Train data set
-  y_test <- y[-index]; x_test <- x[-index,] # Test data set
+  y_train <- y[index]; x_train <- x[index,] # Train dataset
+  y_test <- y[-index]; x_test <- x[-index,] # Test dataset
   
   # Objects where the mean absolute error, and the mean squared prediction error will be stored
   mape <- NULL
@@ -166,6 +173,15 @@ cross_validation <- function(y, x, n, p, e, g, h){
   beta_OLS <- solve(t(x_train)%*%x_train)%*%t(x_train)%*%y_train
   residuals <- y_train - x_train%*%beta_OLS
   sigma2_OLS <- sum(residuals^2)/(n - p)
+  
+  x <- Data %>%
+    dplyr::select(-c(Wage)) %>% # Set the matrix containing the explanatory variables
+    scale(center = TRUE, scale = TRUE) %>% # Standardize the explanatory variables
+  
+  x <- cbind(x, 1) # Create the intercept column
+  
+  x_train <- x[index,] # Standardized train dataset
+  x_test <- x[-index,] # Standardized test dataset
   
   # Fit Bayesian LASSO regression model
   M3 <- Gibbs_lasso(y_train, x_train, e, f = e*sigma2_0, g, h, n, p,
@@ -188,7 +204,7 @@ cross_validation <- function(y, x, n, p, e, g, h){
   return(list(mape = mape, mspe = mspe))
 }
 
-cross_validation_M3 <- cross_validation(y, x, n, p, e, g, h)
+cross_validation_M3 <- cross_validation(y, n, p, e, g, h)
 
 # 7. Monte Carlo samples from the posterior predictive distribution of test statistics
 
