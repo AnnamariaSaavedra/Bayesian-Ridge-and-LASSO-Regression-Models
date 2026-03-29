@@ -30,6 +30,18 @@ p <- ncol(x) # Number of explanatory variables
 
 # 3.1 Hyperparameter elicitation
 
+x_b <- Data %>%
+    dplyr::select(-c(Wage)) %>% # Set the matrix containing the explanatory variables
+    as.matrix()
+
+x_b <- cbind(x_b, 1) # Create the intercept column
+
+beta_OLS <- solve(t(x_b)%*%x_b)%*%t(x_b)%*%y
+
+residuals <- y - x_b%*%beta_OLS
+
+sigma2_OLS <- sum(residuals^2)/(n - p)
+
 a <- 3 # Shape parameter of inverse-gamma distribution
 
 b <- a*sigma2_OLS # Scale parameter of inverse-gamma distribution
@@ -52,7 +64,7 @@ M4 <- Gibbs_ridgenp(y, x,
                     n_sams = 10000, # Set the number of effective samples
                     n_skip = 10, # Accounting for Markov chain autocorrelation will require systematic sampling,
                     a, b, c, d, l, m, n, p)
-save(M4, file = "~/Downloads/RNP CE2.RData")
+
 # 4. Bayesian inference
 
 # 4.1 Display the log-likelihood chain
@@ -112,30 +124,32 @@ hat_np <- function(model, K, p){
   permu <- gtools::permutations(n = K, r = K) # Permutations
   
   # Objects where the samples of beta, and sigma2 will be stored
-  BETA_corrected <- vector("list", p)
-  SIGMA2_corrected <- NULL
+  BETA_corrected <- lapply(1:p, function(x) matrix(nrow = 0, ncol = K))
+  SIGMA2_corrected <- matrix(nrow = 0, ncol = K)
+  
+  # Objects where the posterior mean of beta, and sigma2 will be stored
+  beta_pos <- matrix(0, nrow = K, ncol = p)
+  sigma2_pos <- numeric(K)
   
   # Posterior distribution of K
   k <- apply(X = model$XI, MARGIN = 1, function(x) length(unique(x)))
   k_tab <- table(factor(x = k, levels = k, labels = k))
   
-  # Objects where the posterior mean of beta, and sigma2 will be stored
-  beta_pos <- matrix(0, nrow = K, ncol = p)
-  sigma2_pos <- 0
-  
   for (b in 1:ite) {
     if (length(unique(model$XI[b,])) == K) {
       beta_pos <- beta_pos +
-        model$BETA[[b]][sort(unique(model$XI[b,])), , drop = FALSE] / max(k_tab)
+        (model$BETA[[b]][sort(unique(model$XI[b,])), , drop = FALSE] / max(k_tab))
       
-      sigma2_pos <- sigma2_pos + model$SIGMA[[b]] / max(k_tab)
+      sigma2_pos <- sigma2_pos + (model$SIGMA[[b]] / max(k_tab))
     }
   }
   
-  # Average over the permuted spaces
-  for (b in 1:ite) {
-    if (length(table(model$XI[b,])) == K) {
+  for(b in 1:ite){
+    if (length(unique(model$XI[b,])) == K) {
+      # Average over the permuted spaces
       beta_current <- model$BETA[[b]][sort(unique(model$XI[b,])), , drop = FALSE]
+      sigma2_current <- model$SIGMA[[b]]
+      
       # Reorder according to the permutations, and compute the distance of each sample to its posterior mean
       dist <- apply(X = permu, MARGIN = 1, 
                     FUN = function(perm) {
@@ -148,7 +162,6 @@ hat_np <- function(model, K, p){
         BETA_corrected[[j]] <- rbind(BETA_corrected[[j]], beta_current[best_permu, j]) 
       }
       
-      sigma2_current <- model$SIGMA[[b]]
       # Reorder according to the permutations, and compute the distance of each sample to its posterior mean
       dist2 <- apply(X = permu, MARGIN = 1, 
                      FUN = function(perm) {
@@ -157,8 +170,8 @@ hat_np <- function(model, K, p){
                      }
       )
       # Select the optimum permutation
-      best_permu <- permu[which.min(dist2),]
-      SIGMA2_corrected <- rbind(SIGMA2_corrected, sigma2_current[best_permu])
+      best_permu2 <- permu[which.min(dist2),]
+      SIGMA2_corrected <- rbind(SIGMA2_corrected, sigma2_current[best_permu2])
     }
   }
   
@@ -216,33 +229,9 @@ CI_ALPHA <- round(quantile(x = M4$ALPHA, probs = c(0.025, 0.975)), 4) # 95% cred
 
 # 4.4 Compute information criterion
 
-# Deviance Information Criterion
-
-# Posterior mean of beta, and sigma 2 corrected
-
-LL_HAT <- sum(dnorm(x = y, mean = x%*%beta_mean, sd = sqrt(sigma2_mean), log = TRUE))
-
-LL_B <- M4$LL
-
-pDIC <- 2*(LL_HAT - mean(LL_B))
-
-DIC <- -2*LL_HAT + 2*pDIC
-
-# Posterior mean of beta, and sigma 2 corrected
-
-beta_mean <- round(inference$beta, 4)
-sigma2_mean <- round(inference$sigma2, 4)
-
-LL_HAT <- sum(dnorm(x = y, mean = x%*%beta_mean, sd = sqrt(sigma2_mean), log = TRUE))
-
-LL_B <- M4$LL
-
-pDIC <- 2*(LL_HAT - mean(LL_B))
-
-DIC <- -2*LL_HAT + 2*pDIC
-
 # Watanabe-Akaike Information Criterion
 
+ite <- nrow(M4$XI)
 TMP <- matrix(data = NA, nrow = ite, ncol = n)
 TMP_2 <- matrix(data = NA, nrow = ite, ncol = n)
 
@@ -308,63 +297,82 @@ out_sample <- function(y_test, x_test, K, xi_hat, beta, sigma2, alpha,
 
 # Cross validation
 
-cross_validation <- cross_validation <- function(fold, y, x, p, 
+cross_validation <- cross_validation <- function(y, p, 
                                                  a, b, c, d, l, m){
-  id <- kfold(x = y, k = 2)
-  
-  # Objects where the mean absolute prediction error, and the mean squared 
-  # prediction error will be stored
-  mae <- NULL
-  mse <- NULL
-  
-  for (j in 1:fold) {
-    y_train <- y[id != j]; x_train <- x[id != j,] # Train data set
-    y_test <- y[id == j]; x_test <- x[id == j,] # Test data set
+  x <- Data %>%
+    dplyr::select(-c(Wage)) %>% # Set the matrix containing the explanatory variables
+    as.matrix()
+  x <- cbind(x, 1) # Create the intercept column
+
+  # Create the train and test dataset
+  index <- sample(1:n, size = 0.7*n)
+
+  y_train <- y[index]; x_train <- x[index,] # Train dataset
+  y_test <- y[-index]; x_test <- x[-index,] # Test dataset
+
+  # Hyperparameter elicitation
+  beta_OLS <- solve(t(x_train)%*%x_train)%*%t(x_train)%*%y_train
+  residuals <- y_train - x_train%*%beta_OLS
+  sigma2_OLS <- sum(residuals^2)/(n - p)
+
+  x <- Data %>%
+  select(-c(Wage)) %>% # Set the matrix containing the explanatory variables
+  scale(center = TRUE, scale = TRUE) %>% # Standardize the explanatory variables
+  as.matrix()
+
+  x <- cbind(x, 1) # Create the intercept column
+
+  x_train <- x[index,] # Standardized train dataset
+  x_test <- x[-index,] # Standardized test dataset
+
+  # Objects where the mean absolute error, and the mean squared prediction error will be stored
+  mape <- NULL
+  mspe <- NULL
+
+  n <- length(y_train)
+
+  # Fit Bayesian Nonparametric Ridge regression model
+  M4 <- Gibbs_ridgenp(y_train, x_train, 
+                      n_burn = 1000, 
+                      n_sams = 10000, 
+                      n_skip = 10, 
+                      a, b = a*sigma2_OLS, c, d, l, m, n, p, verbose = TRUE)
     
-    n <- length(y_train)
+  # Inference on the number of clusters
+  K <- apply(M4$XI, 1, function(x) length(unique(x)))
+  K_table <- as.data.frame(table(K)/length(K))
     
-    # Fit Bayesian Nonparametric Ridge regression model
-    M4 <- Gibbs_ridgenp(y_train, x_train, 
-                        n_burn = 1000, 
-                        n_sams = 10000, 
-                        n_skip = 10, 
-                        a, b, c, d, l, m, n, p, verbose = TRUE)
+  # Posterior number of clusters
+  k_pos <- as.numeric(K_table$K[which.max(K_table$Freq)])
     
-    # Inference on the number of clusters
-    K <- apply(M4$XI, 1, function(x) length(unique(x)))
-    K_table <- as.data.frame(table(K)/length(K))
+  # Posterior mean for beta and sigma2
+  beta <- hat_np(M4, k_pos, p)$beta
+  sigma2 <- hat_np(M4, k_pos, p)$sigma2
     
-    # Posterior number of clusters
-    k_pos <- as.numeric(K_table$K[which.max(K_table$Freq)])
+  # Posterior mean for alpha
+  alpha <- mean(M4$ALPHA)
     
-    # Posterior mean for beta and sigma2
-    beta <- hat_np(M4, k_pos, p)$beta
-    sigma2 <- hat_np(M4, k_pos, p)$sigma2
+  # Cluster assignment for train dataset
+  xi_hat <- matrix_A(M4, k_pos, n)
     
-    # Posterior mean for alpha
-    alpha <- mean(M4$ALPHA)
+  # Cross validation
+  xi <- out_sample(y_test, x_test, k_pos, xi_hat, beta, sigma2, alpha,
+                   a, b = a*sigma2_OLS, c, d)
     
-    # Cluster assignment
-    xi_hat <- matrix_A(M4, k_pos, n)
-    
-    # Cross validation
-    xi <- out_sample(y_test, x_test, k_pos, xi_hat, beta, sigma2, alpha,
-                     a, b, c, d)
-    
-    # Linear predictor
-    y_hat_ridge <- numeric(n)
-    for (i in 1:n) {
-      y_hat_ridge[i] <- x_test[i,]%*%beta[,xi[i]]
-    }
-    
-    # Compute mean absolute prediction error and mean squared prediction error
-    mape <- mean(abs(y_test - y_hat_ridge))
-    mspe <- mean((y_test - y_hat_ridge)^2)
+  # Linear predictor
+  y_hat_ridge <- numeric(length(y_test))
+  for (i in 1:length(y_test)) {
+    y_hat_ridge[i] <- x_test[i,]%*%beta[,xi[i]]
   }
+    
+  # Compute mean absolute prediction error and mean squared prediction error
+  mape <- mean(abs(y_test - y_hat_ridge))
+  mspe <- mean((y_test - y_hat_ridge)^2)
+
   return(list(mape = mape, mspe = mspe))
 }
 
-CV <- cross_validation(fold = 1, y, x, p, a, b, c, d, l, m)
+CV <- cross_validation(y, p, a, b, c, d, l, m)
 
 # 4.6 Bayesian inference for density function
 
