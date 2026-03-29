@@ -129,4 +129,4 @@ simulation_lasso <- function(model, hyperparameter, p)
   return(table = table_2)
 }
 
-simulation_result <- simulation_lasso(M2, hyperparameter, p)
+simulation_result <- simulation_lasso(M3, hyperparameter, p)
