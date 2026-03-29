@@ -362,7 +362,6 @@ xi <- out_sample(y_test, x_test, k_pos, xi_hat_cv, beta_cv, sigma2_cv, alpha_cv,
     
 # Linear predictor
 y_hat_ridge <- numeric(length(y_test))
-
 for (i in 1:length(y_test)) {
   y_hat_ridge[i] <- x_test[i,]%*%beta_cv[,xi[i]]
 }
